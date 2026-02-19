@@ -18,7 +18,8 @@ def get_db_connection():
     
     for attempt in range(max_retries):
         try:
-            conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, connect_timeout=10)
+            # Increase timeout for cloud environments and ensure we catch OperationalError
+            conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, connect_timeout=20)
             return conn
         except psycopg2.OperationalError as e:
             if attempt < max_retries - 1:
