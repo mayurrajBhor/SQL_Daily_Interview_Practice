@@ -870,6 +870,15 @@ def handle_feedback_command(chat_id, session):
 def handle_feedback_message(chat_id, username, text, session):
     """Process feedback text."""
     save_feedback(chat_id, username, text)
+    
+    # Notify Admin
+    msg = (
+        "📢 <b>New Feedback Received!</b>\n\n"
+        f"👤 <b>User:</b> {html.escape(username)} (<code>{chat_id}</code>)\n"
+        f"📝 <b>Message:</b>\n<i>{html.escape(text)}</i>"
+    )
+    send_message(ADMIN_ID, msg)
+    
     send_message(chat_id, "✅ <b>Feedback received!</b>\nThank you for helping us improve.", keyboard=MAIN_MENU)
     session.pop("state", None)
     save_user_session(chat_id, session)
