@@ -1,0 +1,43 @@
+{
+  "beginner": [
+    "SELECT & FROM",
+    "WHERE & Filtering",
+    "ORDER BY & Sorting",
+    "LIMIT & OFFSET",
+    "DISTINCT",
+    "AND, OR, NOT",
+    "BETWEEN & IN",
+    "LIKE & Wildcards",
+    "IS NULL / IS NOT NULL",
+    "Basic Aggregate Functions (COUNT, SUM, AVG, MIN, MAX)",
+    "Aliases (AS)"
+  ],
+  "intermediate": [
+    "INNER JOIN",
+    "LEFT / RIGHT JOIN",
+    "FULL OUTER JOIN",
+    "Self Joins",
+    "GROUP BY & HAVING",
+    "CASE WHEN statements",
+    "Subqueries (Scalar, Correlated)",
+    "String Functions (CONCAT, SUBSTRING, LENGTH, REPLACE, ETC)",
+    "Date & Time Functions (DATE_ADD, DATEDIFF, NOW)",
+    "CAST & CONVERT Data Types",
+    "UNION & UNION ALL",
+    "EXISTS OR IN"
+  ],
+  "advanced": [
+    "Window Functions (ROW_NUMBER, RANK, DENSE_RANK)",
+    "Window Aggregations (SUM OVER, AVG OVER)",
+    "Lag & Lead Functions",
+    "Common Table Expressions (CTEs)",
+    "Recursive CTEs",
+    "Temporary Tables",
+    "Query Optimization & Indexing",
+    "Stored Procedures basics",
+    "JSON Data Handling in SQL",
+    "PIVOT / UNPIVOT",
+    "Transactions (COMMIT, ROLLBACK)",
+    "Triggers & Views"
+  ]
+}

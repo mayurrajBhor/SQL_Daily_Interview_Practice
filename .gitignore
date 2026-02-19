@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.venv
+env/
+venv/
+.DS_Store
+
+# Local Data Files (Migrated to DB)
+attempts_history.json
+progress.json
+user_sessions.json
+last_question.json
+update_offset.json
+test_simulation.py
