@@ -237,8 +237,8 @@ def generate_question(difficulty, topic, background_topics=None, sub_level=1, pa
     
     level_constraints = {
         1: "Focus on basic syntax and single-table queries. Keep the business logic simple and direct.",
-        2: "Increase complexity. Integrate filtering, simple aggregations, and ALWAYS require 2-3 tables with JOINs.",
-        3: "Principal Level. Use complex business scenarios involving 3-4 tables, nested logic, window-like filters (without necessarily using window functions if not in tools), or complex date arithmetic."
+        2: "Increase complexity. Integrate filtering, simple aggregations. Use 2-3 tables ONLY if required for the scenario's depth, else 1 complex table (e.g. self-join) is fine.",
+        3: "Principal Level. Use complex business scenarios. Use 3-4 tables IF required for meaningful multi-step logic, otherwise 1-2 tables with very deep logic (nested filters, complex date math) is preferred."
     }
     current_constraint = level_constraints.get(sub_level, level_constraints[1])
 
@@ -422,11 +422,11 @@ You are a Principal SQL Interviewer. Generate a **Scenario-Based** multiple-choi
 {dupe_msg}
 
 <b>Strict Rules (High Quality):</b>
-1. <b>NO Definitions</b>: Do NOT ask "What is valid syntax?" or "What does keyword X do?".
-2. <b>Scenario First</b>: Start with a mini-scenario (e.g., "You are analyzing e-commerce orders...", "A junior dev wrote this query...").
-3. <b>ANTI-REPETITION (STRICT)</b>: You MUST create a scenario that is DIFFERENT from the ones listed in the history above. Use different table names, business contexts, and edge cases.
-4. <b>Code Snippets</b>: If the topic is complex (JOINs, WINDOW Functions, CTEs), you MUST currently include a small SQL snippet or table preview in the question.
-5. <b>Realistic Distractors</b>: The wrong options must be common mistakes (e.g., forgetting to handle NULLs, confusing WHERE vs HAVING, logical off-by-one errors). Do NOT use nonsense options.
+1. <b>NO Tables</b>: Strictly FORBIDDEN from including table definitions, schemas, or ASCII grids in the question. The question must be concise and descriptive enough for the user to understand without a schema diagram.
+2. <b>Scenario First</b>: Start with a mini-scenario (e.g., "A query is running slow due to...", "You need to find users who...").
+3. <b>ANTI-REPETITION (STRICT)</b>: You MUST create a scenario that is DIFFERENT from the ones listed in the history above.
+4. <b>Code Snippets</b>: You may include a single line of SQL or a keyword if necessary, but keep it minimal.
+5. <b>Realistic Distractors</b>: The wrong options must be common logical mistakes. Focus on difficult edge cases.
 
 <b>Output Format (JSON ONLY):</b>
 {{
