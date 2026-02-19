@@ -358,9 +358,20 @@ def handle_practice(chat_id, chosen_topics=None):
         # Use level of the recommended topic
         sub_level = topic_stats.get(topic, {}).get("current_level", 1)
 
+    # 3.8 Fetch History for Anti-Duplication
+    from storage import get_past_questions
+    # Fetch across all topics to ensure variety
+    past_questions = get_past_questions(topic="all", limit=20)
+
     # 4. Generate Question
     print(f"[{chat_id}] Calling LLM to generate question (Sub-Level: {sub_level})...")
-    question_text, retry_count = generate_question(new_difficulty, topic, background_topics=background_topics, sub_level=sub_level)
+    question_text, retry_count = generate_question(
+        new_difficulty, 
+        topic, 
+        background_topics=background_topics, 
+        sub_level=sub_level,
+        past_questions=past_questions
+    )
     print(f"[{chat_id}] Question generated (len={len(question_text)}, retries={retry_count}).")
     
     # 5. Create Session Data
@@ -1212,7 +1223,7 @@ def show_poll_results_list(chat_id):
     send_message(chat_id, msg, keyboard=kb)
 
 def render_poll_results(chat_id, poll_id):
-    """Render detailed results for a specific poll."""
+    """Render detailed results for a specific poll with progress bars."""
     from storage import get_poll_votes_detailed
     votes = get_poll_votes_detailed(poll_id)
     
@@ -1220,27 +1231,35 @@ def render_poll_results(chat_id, poll_id):
         send_message(chat_id, "📭 <b>This poll has no votes yet.</b>\n\nEnsure you've sent it to users and they have actually voted.")
         return
         
-    msg = f"<b>📊 Poll Results Breakdown</b>\n"
-    msg += f"<code>ID: {poll_id}</code>\n\n"
-    
-    # Simple summary table
+    total_votes = len(votes)
     option_counts = {}
     for v in votes:
         opt = v['option_text']
         option_counts[opt] = option_counts.get(opt, 0) + 1
         
-    msg += "📈 <b>Summary:</b>\n"
+    msg = f"📊 <b>Detailed Poll Results</b>\n"
+    msg += f"<code>ID: {poll_id}</code>\n"
+    msg += f"👥 <b>Total Votes: {total_votes}</b>\n\n"
+    
+    msg += "📈 <b>Breakdown:</b>\n"
     for opt, count in option_counts.items():
-        # Escape HTML for options as they often contain SQL
-        safe_opt = html.escape(opt)
-        msg += f"• {safe_opt}: <b>{count} votes</b>\n"
+        percentage = (count / total_votes) * 100
+        # Progress bar logic (10 chars wide)
+        filled = int(percentage / 10)
+        bar = "█" * filled + "░" * (10 - filled)
         
-    msg += "\n👤 <b>Individual Votes:</b>\n"
-    for v in votes:
-        # Escape HTML for usernames and options
+        safe_opt = html.escape(opt)
+        msg += f"• <b>{safe_opt}</b>\n  {bar} {count} ({percentage:.1f}%)\n"
+        
+    # Limit individual votes to last 10 to keep it neat
+    msg += "\n👤 <b>Recent Individual Votes:</b>\n"
+    for v in votes[-10:]:
         safe_name = html.escape(v['user_name'])
         safe_opt = html.escape(v['option_text'])
-        msg += f"• <b>{safe_name}</b>: <i>{safe_opt}</i>\n"
+        msg += f"• <b>{safe_name}</b> -> <i>{safe_opt}</i>\n"
+        
+    if total_votes > 10:
+        msg += f"\n<i>...and {total_votes - 10} more votes.</i>"
         
     send_message(chat_id, msg)
 

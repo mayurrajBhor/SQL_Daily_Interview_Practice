@@ -46,7 +46,7 @@ def broadcast_daily_quiz():
 
     # 3. Fetch History for Anti-Duplication (GLOBAL Context)
     from storage import get_past_questions
-    past_questions = get_past_questions(topic="all", limit=15)
+    past_questions = get_past_questions(topic="all", limit=30)
     
     # 4. Generate ONE Global Quiz Question (MCQ)
     quiz_data, retry_count = generate_quiz_question(challenge_difficulty, topic, past_questions=past_questions)

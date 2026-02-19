@@ -155,30 +155,22 @@ def evaluate_sql(question, user_answer, background_topics=None):
     bg_list = ", ".join(background_topics) if background_topics else "None (Tutorial level)"
 
     prompt = f"""
-You are an expert SQL evaluator. 
+You are an expert SQL evaluator.
 
-<b>Knowledge Domain (STRICT):</b>
-- <b>User's Current Progress</b>: {bg_list}
-- <b>CRITICAL RULE</b>: NEVER provide a "Correct SQL" or explanation that uses concepts NOT in the list above (unless they are part of the original question). For example, if CTEs are NOT in the list, provide a solution using Subqueries or Joins instead.
+<b>EVALUATION POLICY (STRICT):</b>
+- <b>CONCISENESS</b>: Max 2 paragraphs for EXPLANATION. 
+- <b>NO FILLER</b>: Do not say "I've reviewed your query" or "Here is my feedback".
+- <b>VISUAL BRAKDOWN (MANDATORY)</b>: Use small ASCII diagrams (in <pre>) if the logic involves JOINs, filters, or aggregations to show why it failed.
+  Example failure visual:
+  <pre>
+  Expected: [Data A] --(Filter X)--> [Result]
+  User Got: [Data A] --(Filter Y)--> [Result]
+  </pre>
 
-<b>Critical Evaluation Guidelines:</b>
-- <b>Functional Equivalence</b>: If the user's query produces the exact same result set as the ideal query, it MUST be marked as <b>Correct</b>.
-- <b>Precision</b>: Only mark as <b>Incorrect</b> if there is a logical error, missing filter, wrong join column, or syntax error that would prevent the query from running in MySQL.
-- <b>DIALECT ENFORCEMENT (MySQL)</b>: Strictly use MySQL syntax. 
-
-<b>Output Requirements (STRICT FORMATTING):</b>
-1. <b>NO GLOBAL WRAPPING</b>: NEVER wrap the whole response or the whole explanation in a <code>&lt;pre&gt;</code> or <code>&lt;code&gt;</code> tag.
-2. <b>EXPLANATION SECTION</b>: 
-    - The text MUST be plain HTML text.
-    - <b>NO CODE BLOCKS</b>: NEVER use <code>&lt;pre&gt;</code> or <code>&lt;code&gt;</code> inside the EXPLANATION. 
-    - <b>Emphasis</b>: Use <code>&lt;b&gt;</code> for SQL keywords or table names. 
-    - Example: 1. You used <b>AVG()</b> correctly...
-3. <b>CORRECT_SQL SECTION</b>: 
-    - This is the ONLY place where <code>&lt;pre&gt;&lt;code&gt;</code> is allowed.
-4. <b>ALLOWED TAGS</b>: ONLY use <code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;code&gt;</code>, <code>&lt;pre&gt;</code>.
-5. <b>ZERO MARKDOWN POLICY</b>: NEVER use asterisks (<code>*</code>), underscores (<code>_</code>), or backticks (<code>`</code>) for formatting. If you need bold, use <code>&lt;b&gt;</code>.
-6. <b>LIST POLICY</b>: NEVER use <code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, or <code>&lt;li&gt;</code>. For lists, use the literal bullet character (•) manually. <b>CRITICAL</b>: Every bullet point MUST start on a new line.
-7. <b>CONCISENESS</b>: Your response MUST be under 3000 characters total.
+<b>Output Requirements:</b>
+1. <b>EXPLANATION SECTION</b>: Use <b>bold</b> for SQL snippets. NO code blocks.
+2. <b>CORRECT_SQL SECTION</b>: Use <code>&lt;pre&gt;&lt;code&gt;</code>.
+3. <b>DIALECT</b>: MySQL.
 
 <b>Context:</b>
 Question: {question}
@@ -186,10 +178,9 @@ User Answer: {user_answer}
 
 <b>Output Format:</b>
 RESULT: <b>Correct</b> / <b>Incorrect</b> [Visual Emoji]
-EXPLANATION: [Step-by-step breakdown. NO CODE BLOCKS. Use <b>bold</b> for SQL snippets.]
-<b>LOGICAL CONFLICT RESOLUTION</b>: If the Question itself contains a contradiction (e.g., Scenario says "Popular means > 4.0" but Question says "Include NULLs"), give the user the benefit of the doubt if their query is logically sound for at least one interpretation. Do NOT penalize the user for the model's own logical flaws.
+EXPLANATION: [Brief breakdown + ASCII visual in <pre> if helpful]
 CORRECT_SQL: 
-<pre><code>[The ideal query here]</code></pre>
+<pre><code>[The ideal query]</code></pre>
 """
 
     retry_count = 0
@@ -228,67 +219,70 @@ CORRECT_SQL:
     return feedback, result, explanation, correct_sql, retry_count
 
 
-def generate_question(difficulty, topic, background_topics=None, sub_level=1):
+def generate_question(difficulty, topic, background_topics=None, sub_level=1, past_questions=None):
     if background_topics is None or not hasattr(background_topics, '__iter__') or isinstance(background_topics, (str, bytes)):
         background_topics = []
         
     # Format background topics for the prompt
     bg_list = ", ".join(background_topics) if background_topics else "None (Tutorial level)"
     
+    # Anti-Duplication
+    dupe_msg = ""
+    if past_questions:
+        dupe_msg = f"<b>CRITICAL: Avoid These Recent Scenarios:</b>\n" + "\n".join([f"- {q[:100]}..." for q in past_questions[:15]]) + "\n"
+
     # Sub-level descriptions for LLM
     level_names = {1: "EASY", 2: "MEDIUM", 3: "HARD"}
     current_level_name = level_names.get(sub_level, "EASY")
     
     level_constraints = {
         1: "Focus on basic syntax and single-table queries. Keep the business logic simple and direct.",
-        2: "Increase complexity. Integrate filtering, simple aggregations, or basic multi-table relationships.",
-        3: "Principal Level. Use complex business scenarios, multiple joins, nested logic, or edge cases like NULLs and ties."
+        2: "Increase complexity. Integrate filtering, simple aggregations, and ALWAYS require 2-3 tables with JOINs.",
+        3: "Principal Level. Use complex business scenarios involving 3-4 tables, nested logic, window-like filters (without necessarily using window functions if not in tools), or complex date arithmetic."
     }
     current_constraint = level_constraints.get(sub_level, level_constraints[1])
 
     prompt = f"""
 You are a Principal SQL Interviewer at a top tech company. Your task is to generate one high-quality, professional SQL interview question at the <b>{current_level_name}</b> level.
 
+{dupe_msg}
+
 <b>LEETCODE STYLE EXAMPLE:</b>
-<b>Problem Description:</b> An e-commerce platform needs to find "Loyal Customers." A customer is loyal if they have made at least 3 orders, each with a total value greater than $100. Return the IDs of all loyal customers. Order the result by customer_id.
+<b>Problem Description:</b> A logistics company needs to find "High-Value Routes." A route is high-value if it has more than 10 shipments in the last 30 days and the average package weight is above 50kg.
 <b>Tables:</b> 
 <pre>
-Table: orders
-+----------+-------------+--------------+
-| order_id | customer_id | order_amount |
-+----------+-------------+--------------+
-| 1        | 101         | 150.00       |
-| 2        | 101         | 120.00       |
-| 3        | 102         | 50.00        |
-+----------+-------------+--------------+
+Table: routes (PK: route_id)
+| route_id | origin_city | dest_city |
+| 1        | New York    | London    |
+| 2        | Tokyo       | Paris     |
+
+Table: shipments (PK: ship_id, FK: route_id)
+| ship_id | route_id | weight | ship_date  |
+| 100     | 1        | 60.5   | 2024-01-05 |
+| 101     | 1        | 45.0   | 2024-01-10 |
 </pre>
 
 <b>INTERNAL CHALLENGE CONSTRAINTS (STRICT):</b>
 - <b>Target Topic to Test</b>: {topic}
 - <b>Sub-Level Complexity</b>: {current_level_name} ({current_constraint})
 - <b>Available Syntax Tools</b>: {bg_list}
-- <b>LOGICAL ALIGNMENT</b>: The problem MUST be naturally solvable using the tools above. DO NOT create a scenario that requires advanced syntax if it is not in the list above.
+- <b>TABLE COUNT</b>: For {current_level_name}, you MUST use **{1 if sub_level==1 else ('2-3' if sub_level==2 else '3-4')} tables**. 
+- <b>SCHEMA CONSTRAINTS</b>: Always briefly mention Primary Keys (PK) and Foreign Keys (FK) for each table.
 
 <b>CRITICAL RULES:</b>
-1. <b>NO META-TALK</b>: Never mention "internal briefs," "learned topics," "allowed keywords," or "syntax constraints."
+1. <b>NO META-TALK</b>: Never mention "internal briefs," "learned topics," or "syntax constraints."
 2. <b>NO LOGIC HINTS / PSEUDO-SQL</b>:
-    - NEVER use phrases that translate directly to SQL code. 
-    - <b>BANNED PHRASES</b>: "if either... or", "between X and Y", "inclusive/exclusive", "exclude rows where", "no duplicate rows", "filter by".
-    - <b>INSTEAD</b>: Use business language. (e.g., "Only show high-budget projects" instead of "Filter for budget > 100000").
+    - NEVER use phrases like "between X and Y", "join table A with B", "group by", "filter rows where".
+    - <b>INSTEAD</b>: Use business language. (e.g., "Find the most active accounts" instead of "Filter for login_count > 10").
 3. <b>NO HINTS / HAND-HOLDING</b>:
-    - NEVER give explicit SQL instructions like "alias the column as id" or "use the AS keyword."
-    - NEVER tell the user which logic to use (e.g., "Use a JOIN").
-    - <b>NO MAPPING INSTRUCTIONS</b>: Do NOT say "order by date descending". Instead say "Show the most recent items first." or "List the top performers."
-    - The goal is to test if the user knows *how* to translate "most recent" into `ORDER BY date DESC`. Don't do the translation for them.
-4. <b>LEETCODE QUALITY</b>: Use complex business domains. Include edge cases like ties in ordering, NULL values in optional columns, or boundary dates.
-5. <b>LOGICAL CONSISTENCY (CRITICAL)</b>: Ensure the internal logic rules exactly match the reporting requirement. 
-    - <b>Example of WRONG</b>: "Problem Description: Popular is > 4.0 (which excludes NULL), but also says to include NULL values."
-    - <b>Instead</b>: "Problem Description: Popular is > 4.0 or missing a rating. Return all popular titles."
-6. <b>CONCISENESS</b>: Keep the description brief. Provide a single clean ASCII grid for data. Total response must be under 3000 characters.
+    - NEVER tell the user which logic to use (e.g., "Use a Subquery").
+    - The goal is to test if the user knows *how* to translate business requirements into SQL.
+4. <b>ANTI-REPETITION</b>: Use creative business domains (Renewable Energy, Healthcare, Gaming, Space Logistics). Avoid generic "Employees/Departments" unless forced by the topic.
+5. <b>LOGICAL CONSISTENCY</b>: Ensure output requirements match the data provided. Total response must be under 3000 characters.
 
 <b>Output Structure:</b>
-<b>Problem Description:</b> [Define the business context, logic rules, and the final goal here using NORMAL, cohesive English. Avoid fragmenting the logic between sections.]
-<b>Tables:</b> [ASCII grid in &lt;pre&gt; showing sample data]
+<b>Problem Description:</b> [Define the business context and the final goal.]
+<b>Tables:</b> [ASCII grids in &lt;pre&gt; showing sample data for each table.]
 """
 
     retry_count = 0
@@ -338,35 +332,33 @@ def discuss_question(topic, question, user_message, chat_history=None, backgroun
         
     messages = [
         {"role": "system", "content": f"""
-You are a helpful SQL Mentor. The user is currently practicing a SQL question. 
+You are a Socratic SQL Mentor. Your goal is to help the user solve the problem WITHOUT giving the final SQL.
 
-<b>SOCRATIC TEACHING STYLE (CRITICAL):</b>
-- <b>DO NOT GIVE THE ANSWER</b>: You are strictly FORBIDDEN from providing the correct SQL query or the complete solution.
-- <b>GUILD BY HINTS</b>: Instead of giving the answer, identify where the user might be stuck based on the chat history. Ask guiding questions or explain the underlying SQL concept (e.g., explain how JOINs work without writing the query for them).
-- <b>NO CODE BLOCKS FOR ANSWERS</b>: Never include a code block that contains more than a small snippet of an individual function or keyword.
+<b>CONCISENESS POLICY (STRICT):</b>
+- Keep responses under 2-3 short paragraphs.
+- <b>NO FILLER</b>: Never say "I'd be happy to help", "Great question", or "Let's dive in". Just start the help.
+- If the user is on the right track, just give a 1-sentence confirmation and the next hint.
 
-<b>Knowledge Domain (STRICT):</b>
-- <b>User's Progress</b>: {bg_list}
-- <b>CRITICAL RULE</b>: NEVER suggest advanced concepts NOT in the list above.
+<b>VISUALS POLICY (MANDATORY):</b>
+- Use tiny ASCII diagrams or tables (wrapped in <code>&lt;pre&gt;</code>) to explain data flow or JOIN logic.
+- Example: 
+<pre>
+Table A --[JOIN on ID]--> Table B
+(IDs match) -> (Row kept)
+</pre>
+
+<b>Formatting Rules (STRICT):</b>
+1. <b>STRICT HTML</b>: Use only <b>, <i>, <code>, <pre>.
+2. <b>NO GLOBAL WRAPPING</b>: Never wrap your whole reply in <pre>.
+3. <b>PROSE TEXT</b>: Use plain text for explanations. Use <b>bold</b> for SQL snippets in prose. 
+4. <b>ZERO MARKDOWN POLICY</b>: No asterisks, underscores, or backticks.
+5. <b>LIST POLICY</b>: Use literal bullet characters (•). Every bullet MUST start on a new line.
 
 <b>Current Topic:</b> {topic}
 <b>Question Context:</b>
 {question}
 
-<b>Formatting Rules (STRICT):</b>
-1. <b>STRICT HTML</b>: Use only <b>, <i>, <code>, <pre>.
-2. <b>NO GLOBAL WRAPPING</b>: Never wrap your whole reply in <pre>.
-3. <b>PROSE TEXT</b>: 
-    - Use plain text for explanations. 
-    - <b>NO CODE TAGS in PROSE</b>: Do NOT use <code> or <pre> for SQL snippets inside regular paragraphs. Instead, use <b>bold</b>. 
-    - Example: You should use <b>AVG()</b> here...
-4. <b>SQL BLOCKS</b>: Use <code>&lt;pre&gt;&lt;code&gt;...&lt;/code&gt;&lt;/pre&gt;</code> ONLY for small concept demonstrations. NEVER for the full solution.
-5. <b>ZERO MARKDOWN POLICY</b>: You are FORBIDDEN from using Markdown characters (<code>*</code>, <code>_</code>, <code>`</code>). Use ONLY valid HTML tags (<code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>).
-6. <b>LIST POLICY</b>: NEVER use <code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, or <code>&lt;li&gt;</code>. For lists, use the literal bullet character (•) manually. <b>CRITICAL</b>: Every bullet point MUST start on a new line.
-7. <b>CONCISENESS</b>: Your response MUST be under 3000 characters total.
-
-<b>DIALECT ENFORCEMENT (MySQL):</b>
-- Strictly use MySQL syntax.
+<b>DIALECT:</b> MySQL
 """}
     ]
     
