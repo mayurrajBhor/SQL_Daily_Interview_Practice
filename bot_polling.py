@@ -1758,9 +1758,12 @@ def run_health_check():
     
     class HealthCheckHandler(BaseHTTPRequestHandler):
         def do_GET(self):
+            content = b"OK"
             self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(content)))
             self.end_headers()
-            self.wfile.write(b"OK")
+            self.wfile.write(content)
         def log_message(self, format, *args):
             return # Silent logs
 
