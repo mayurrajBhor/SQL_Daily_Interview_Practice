@@ -1749,8 +1749,13 @@ def main():
             time.sleep(5) # Wait before retrying on network error
 
 def run_health_check():
-    """Run a simple HTTP server to satisfy Hugging Face health checks."""
+    """Run a simple HTTP server to satisfy Render/Hugging Face health checks."""
     from http.server import BaseHTTPRequestHandler, HTTPServer
+    import os
+    
+    # Render provides PORT, Hugging Face uses 7860, default to 10000
+    port = int(os.environ.get("PORT", 7860))
+    
     class HealthCheckHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -1759,8 +1764,8 @@ def run_health_check():
         def log_message(self, format, *args):
             return # Silent logs
 
-    server = HTTPServer(('0.0.0.0', 7860), HealthCheckHandler)
-    print("🌍 Health check server started on port 7860")
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    print(f"🌍 Health check server started on port {port}")
     server.serve_forever()
 
 if __name__ == "__main__":
