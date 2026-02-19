@@ -157,9 +157,58 @@ def init_db():
     # Run Migrations (Safe to run every time)
     _run_migrations(conn)
 
+    # NEW: Sync serial sequences to prevent UniqueViolation after migration
+    sync_sequences(conn)
+
     cur.close()
     conn.close()
     print("✅ Database initialized successfully.")
+
+def sync_sequences(conn):
+    """Synchronize SERIAL sequences with the current max ID in each table."""
+    cur = conn.cursor()
+    print("🔄 Synchronizing database sequences...")
+    
+    tables_with_serial = [
+        ('topic_stats', 'id'),
+        ('attempts', 'id'),
+        ('feedback', 'id'),
+        ('quiz_answers', 'id'),
+        ('global_challenges', 'id')
+    ]
+    
+    for table, id_col in tables_with_serial:
+        try:
+            # PostgreSQL command to set the sequence to the current max ID
+            cur.execute(f"SELECT setval(pg_get_serial_sequence('{table}', '{id_col}'), COALESCE(MAX({id_col}), 1)) FROM {table};")
+            conn.commit()
+        except Exception as e:
+            print(f"  ⚠️ Sequence sync failed for {table}: {e}")
+            conn.rollback()
+            
+    # Add indexes for performance if missing
+    indexes = [
+        ('idx_attempts_user_id', 'attempts', 'user_id'),
+        ('idx_attempts_question_id', 'attempts', 'question_id'),
+        ('idx_topic_stats_user_id', 'topic_stats', 'user_id'),
+        ('idx_quiz_answers_poll_id', 'quiz_answers', 'poll_id')
+    ]
+    
+    for idx_name, table, col in indexes:
+        try:
+            cur.execute(f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} ({col});")
+            conn.commit()
+        except Exception as e:
+            print(f"  ⚠️ Index creation failed ({idx_name}): {e}")
+            conn.rollback()
+            
+    cur.close()
+    print("✅ Sequences and Indexes synchronized.")
+
+def get_user_id_column(cur):
+    """Detect if the table uses user_id or telegram_id (for backwards compatibility)."""
+    # This is a helper for storage.py to avoid hardcoding if migration is partial
+    return "user_id" # Defaulting to user_id as migrations should have run
 
 def _run_migrations(conn):
     """Check for missing columns and add them (Auto-Migration)."""
