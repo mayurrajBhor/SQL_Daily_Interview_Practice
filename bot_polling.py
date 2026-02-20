@@ -150,7 +150,8 @@ MAIN_MENU = {
         [{"text": "🎯 Mission"}, {"text": "📢 Feedback"}]
     ],
     "resize_keyboard": True,
-    "one_time_keyboard": False
+    "one_time_keyboard": False,
+    "is_persistent": True
 }
 
 CHAT_MENU = {
@@ -160,7 +161,8 @@ CHAT_MENU = {
         [{"text": "🛑 Stop Discussion"}]
     ],
     "resize_keyboard": True,
-    "one_time_keyboard": False
+    "one_time_keyboard": False,
+    "is_persistent": True
 }
 
 ADMIN_MENU = {
