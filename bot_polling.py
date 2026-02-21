@@ -1039,7 +1039,7 @@ def handle_broadcast_message(chat_id, text, session):
             for uid in user_ids:
                 if uid == ADMIN_ID: continue
                 try:
-                    send_message(uid, f"📢 <b>Announcement:</b>\n\n{final_text}")
+                    send_message(uid, f"📢 <b>Announcement:</b>\n\n{final_text}", keyboard=MAIN_MENU)
                     count += 1
                 except:
                     pass
@@ -1591,7 +1591,7 @@ def run_scheduler():
                         f"Keep your streak alive! 🔥"
                     )
                     try:
-                        res = send_message(user_id, msg)
+                        res = send_message(user_id, msg, keyboard=MAIN_MENU)
                         # Save the new message_id to session for next deletion
                         if res and res.get("ok"):
                             session["last_reminder_id"] = res["result"]["message_id"]

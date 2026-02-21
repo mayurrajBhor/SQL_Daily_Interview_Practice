@@ -105,15 +105,28 @@ def send_poll_to_user(chat_id, quiz_data):
         
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPoll"
     
+    # Minimal MAIN_MENU to ensure persistence
+    main_menu = {
+        "keyboard": [
+            [{"text": "🎯 Practice"}, {"text": "🧩 Topic Wise"}],
+            [{"text": "🏆 Leaderboard"}, {"text": "📊 Profile"}],
+            [{"text": "🎯 Mission"}, {"text": "📢 Feedback"}]
+        ],
+        "resize_keyboard": True,
+        "one_time_keyboard": False,
+        "is_persistent": True
+    }
+
     payload = {
         "chat_id": chat_id,
         "question": quiz_data["question"],
         "options": json.dumps(quiz_data["options"]),
-        "is_anonymous": False,  # Allow seeing who voted (useful for future leaderboards)
+        "is_anonymous": False,
         "type": "quiz",
         "correct_option_id": quiz_data["correct_option_id"],
         "explanation": quiz_data["explanation"],
-        "explanation_parse_mode": "HTML"
+        "explanation_parse_mode": "HTML",
+        "reply_markup": json.dumps(main_menu)
     }
     
     response = requests.post(url, json=payload)
