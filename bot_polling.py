@@ -406,10 +406,6 @@ def handle_practice(chat_id, chosen_topics=None):
         final_output = f"🛡️ <i>Note: Question formatting auto-corrected by system ({retry_count} retries).</i>\n\n{final_output}"
     
     send_message(chat_id, final_output, keyboard=MAIN_MENU)
-    
-    # 8. Send Instructions
-    send_message(chat_id, SQL_HINT_MSG, keyboard=MAIN_MENU)
-    send_message(chat_id, SQL_TEMPLATE, keyboard=DISCUSS_KEYBOARD)
 
 def handle_topic_selection_menu(chat_id):
     msg = "🧩 <b>Topic Wise Practice</b>\n\nChoose a difficulty level to explore topics:"
@@ -759,9 +755,7 @@ def handle_callback(chat_id, callback_data, callback_id, message_id):
             f"Level: <code>{challenge['difficulty'].capitalize()}</code>\n\n"
             f"{challenge['question_data']['question']}"
         )
-        send_message(chat_id, msg)
-        send_message(chat_id, SQL_HINT_MSG, keyboard=MAIN_MENU)
-        send_message(chat_id, SQL_TEMPLATE, keyboard=DISCUSS_KEYBOARD)
+        send_message(chat_id, msg, keyboard=DISCUSS_KEYBOARD)
         return
 
         
